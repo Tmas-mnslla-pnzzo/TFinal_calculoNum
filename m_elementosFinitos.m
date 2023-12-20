@@ -1,46 +1,23 @@
+pkg load io
+
 %parametros
 L=1;
-Cn=10;
-r=10;
+Cn=8;
+r=8;
 R=1/6;
 nodos_x=3*r-2;
 
 %funciones
-function u_1=u1(x,y)
-  u_1=x*(1-x)*y*(1-y);
-endfunction
 
-function u_2=u2(x,y)
-  u_2=((x-0.5)**2+(y-0.5)**2+(1/36))**2;
-endfunction
-
-function f_1=f1(x,y)
-  f_1=2*x*y*y-2*x*y-y*y+y;
-endfunction
-
-function f_2=f2(x,y)
-  f_2=2*y*x*x-2*y*x-x*x+x;
-endfunction
-
-function f_3=f3(x,y)
-  f_3=4*(x**3)-6*(x**2)+4*x*(y**2)-4*x*y+(37/9)*x-2*(y**2)+2*y-(19/18);
-endfunction
-
-function f_4=f4(x,y)
-  f_4=4*(y**3)-6*(y**2)+4*y*(x**2)-4*y*x+(37/9)*y-2*(x**2)+2*x-(19/18);
-endfunction
-
-function f_5=f5(x,y)
-  f_5=2*(x*x+y*y-x-y);
-endfunction
-
-function f_6=f6(x,y)
-  f_6=16*(x*x+y*y-x-y+(2*37)/(16*9));
-endfunction
-
-function f_0=f(x,y)
-  f_0=u1(x,y)*f6(x,y)+u2(x,y)*f5(x,y)+2*(f1(x,y)*f3(x,y)+f2(x,y)*f4(x,y));
-endfunction
+u1 = @(x,y) x.*(1-x).*y.*(1-y);
+u2 = @(x,y) ((x-0.5).^2+(y-0.5).^2+(1/36)).^2;
+f1  = @(x,y) x.*y.*y.*2-x.*y*2-y.*y+y;
+f2  = @(x,y) y.*x.*x.*2-y.*x.*2-x.*x+x;
+f3  = @(x,y) (x.^3).*4-(x.^2).*6+x.*(y.^2).*4-x.*y.*4+(37/9).*x-(y.^2).*2+y.*2-(19/18);
+f4  = @(x,y) (y.^3).*4-(y.^2).*6+y.*(x.^2).*4-y.*x.*4+(37/9).*y-(x.^2).*2+x.*2-(19/18);
+f5  = @(x,y) (x.*x+y.*y-x-y).*2;
+f6  = @(x,y) (x.*x+y.*y-x-y+(2*37)/(16*9)).*16;
+f    = @(x,y) u1(x,y).*f6(x,y)+u2(x,y).*f5(x,y)+2.*(f1(x,y).*f3(x,y)+f2(x,y).*f4(x,y));
 
 function A=area(p1,p2,p3)
   a1=p1(1);
@@ -85,13 +62,7 @@ function inM=M_i(p1,p2,p3,k)
 endfunction
 
 function grad=grad_nodo(p1,p2,p3)
-  a1=p1(1);
-  a2=p1(2);
-  b1=p2(1);
-  b2=p2(2);
-  c1=p3(1);
-  c2=p3(2);
-  area=area2(a1,a2,b1,b2,c1,c2);
+  area=area(p1,p2,p3);
   
   C1=M_i(p1,p2,p3,1);
   c_i=[C1(1),C1(2)];
@@ -119,6 +90,10 @@ function Ub=ubicar(n1,n2,n3,S,M)
   M(n3,n1)=M(n3,n1)+S(3,1);
   M(n3,n2)=M(n3,n2)+S(3,2);
   Ub=M;
+endfunction
+
+function w=omega(x,y,a,b,c)
+  w=a*x+b*y+c;
 endfunction
 
 %generar circulo
@@ -188,7 +163,6 @@ Xp=0.5:h:1;
 Pp=horzcat(Yp(:),Xp(:));
 
 %desarrollo del metodo
-P=P;
 TF=TF_1;
 
 M=zeros(size(P)(1),size(P)(1));
@@ -206,17 +180,48 @@ end
 
 B=[];
 for s_i=1:1:size(P)(1)
-  f_ii=-f(P(s_i,:)(1),P(s_i,:)(2))*(1/2);
   [file,row]=find(TF==s_i);
   suma=0;
   for t_i=1:1:size(TF(file,:))(1)
+    
     P_I=TF(file,:)(t_i,:);
-    p11=P(P_I(1),:);
-    p22=P(P_I(2),:);
-    p33=P(P_I(3),:);
-    suma=suma+area(p11,p22,p33);
+    
+    if P_I(1)==s_i
+      p11=P(P_I(1),:);
+      p22=P(P_I(2),:);
+      p33=P(P_I(3),:);
+    else
+      if P_I(2)==s_i
+        p11=P(P_I(2),:);
+        p22=P(P_I(1),:);
+        p33=P(P_I(3),:);
+      else
+        p11=P(P_I(3),:);
+        p22=P(P_I(1),:);
+        p33=P(P_I(2),:);
+      endif
+    endif
+    
+    a=M_i(p11,p22,p33,1)(1);
+    b=M_i(p11,p22,p33,1)(2);
+    c=M_i(p11,p22,p33,1)(3);
+    
+    a1=p11(1);
+    a2=p11(2);
+    b1=p22(1);
+    b2=p22(2);
+    c1=p33(1);
+    c2=p33(2);
+    
+    J=[(b1-a1) (c1-a1); (b2-a2) (c2-a2)];
+    J2=inv(J);
+   
+    fun = @(u,v) -f(((b1-a1).*u+(c1-a1).*v+a1),((b2-a2).*u+(c2-a2).*v+a2)).*(a.*((b1-a1).*u+(c1-a1).*v+a1)+b.*((b2-a2).*u+(c2-a2).*v+a2)+c);
+    ymx = @(u) 1 - u;
+    inte1 = integral2(fun,0,1,0,ymx);
+    suma=suma+abs(det(J))*inte1;
   endfor
-  B=[B;suma*f_ii];
+  B=[B;suma];
 end
 
 [FX,RX]=find(P==1);
@@ -228,8 +233,6 @@ for i=1:1:size(unique(FX))(1)
   M(unique(FX)(i),unique(FX)(i))=1;
 end
 
-dir=[0 0 1];
-
 K=inv(M);
 U=K*B;
 Z_EF=horzcat(P,U);
@@ -238,30 +241,50 @@ mx_y=Z_EF((find(Z_EF(:,3)==max(Z_EF(:,3)))),:)(1);
 ind_mx_y=find(Z_EF(:,2)==mx_y);
 L1_mx_y=Z_EF(ind_mx_y,:)(:,1);
 L1_mx_y2=L1_mx_y-0.5; L1_mx_y2(end)=[];
-L1_mx_y=vertcat(L1_mx_y2,L1_mx_y)
+L1_mx_y=vertcat(L1_mx_y2,L1_mx_y);
 
 L2_mx_y=Z_EF(ind_mx_y,:)(:,3);
 L2_mx_y2=fliplr(L2_mx_y'); L2_mx_y2(end)=[];
-L2_mx_y=vertcat(L2_mx_y2',L2_mx_y)
+L2_mx_y=vertcat(L2_mx_y2',L2_mx_y);
+
+%cargar palnillas
+
+cel_nodos={'Nodo','X','Y'};
+cel_elementos={'Elemento','N1','N2','N3'};
+
+for nod=1:1:size(P)(1)
+  cel_nodos(nod+1,:)={nod,P(nod,1),P(nod,2)};
+end
+
+for elemen=1:1:size(TF)(1)
+  cel_elementos(elemen+1,:)={elemen,TF(elemen,1),TF(elemen,2),TF(elemen,3)};
+end
+
+xlswrite('nodos.xlsx',cel_nodos);
+xlswrite('elementos.xlsx',cel_elementos);
 
 %graficar
 
-%plot(x_DF,max(Z_DF)); hold on;
-%plot(L1_mx_y,L2_mx_y); hold on;
+%plot(x_DF,max(Z_DF)); hold on
+%plot(L1_mx_y,L2_mx_y); hold on
 %plot(x_A,max(Z_A)); xlabel ("Distancia [m]"); ylabel ("Desplazamiento[m]"); legend('Diferencias Finitas','Elementos Finitos','Función Analitica')
 
-figure 1
 
-tr1=trisurf(TF,Z_EF(:,1),Z_EF(:,2)-0.5,Z_EF(:,3)); 
+dir=[0 0 1];
+
+%{
+figure 1
+tr1=trimesh(TF,Z_EF(:,1),Z_EF(:,2)-0.5,Z_EF(:,3)); 
 rotate(tr1,dir,270)
 hold on
-tr2=trisurf(TF,Z_EF(:,1),Z_EF(:,2),Z_EF(:,3)); 
+tr2=trimesh(TF,Z_EF(:,1),Z_EF(:,2),Z_EF(:,3)); 
 rotate(tr2,dir,360)
 hold on
-tr3=trisurf(TF,Z_EF(:,1)+1,Z_EF(:,2)+1,Z_EF(:,3)); 
+tr3=trimesh(TF,Z_EF(:,1)+1,Z_EF(:,2)+1,Z_EF(:,3)); 
 rotate(tr3,dir,180)
 hold on
-tr4=trisurf(TF,Z_EF(:,1),Z_EF(:,2),Z_EF(:,3)); 
+tr4=trimesh(TF,Z_EF(:,1),Z_EF(:,2),Z_EF(:,3)); 
 rotate(tr4,dir,90)
 xlabel ("Distancia [m]"); ylabel ("Distancia [m]"); zlabel("Desplazamiento [m]");
 view([45 45 130])
+
